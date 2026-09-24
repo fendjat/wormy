@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Supply chain attack traces</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EDF0F3; --panel:#F8F9FA; --ink:#16202A; --muted:#56616D; --rule:#C8CED5;
+  --origin:#A15C0B; --origin-bg:#F6E9D6;
+  --spread:#B0212B; --spread-bg:#F7DEDF;
+  --persist:#4A3894; --persist-bg:#E6E1F5;
+  --found:#1B6A5E; --found-bg:#DCEFEA;
+  --sans:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#141A20; --panel:#1B232B; --ink:#E4E8EC; --muted:#9AA5B1; --rule:#33404C;
+    --origin:#E3A152; --origin-bg:#3A2A15;
+    --spread:#EE7078; --spread-bg:#3D1A1E;
+    --persist:#A898EC; --persist-bg:#29224A;
+    --found:#5CC2B0; --found-bg:#15332E;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141A20; --panel:#1B232B; --ink:#E4E8EC; --muted:#9AA5B1; --rule:#33404C;
+  --origin:#E3A152; --origin-bg:#3A2A15;
+  --spread:#EE7078; --spread-bg:#3D1A1E;
+  --persist:#A898EC; --persist-bg:#29224A;
+  --found:#5CC2B0; --found-bg:#15332E;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.45;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86em;background:color-mix(in srgb,var(--ink) 8%,transparent);padding:.05em .3em;border-radius:3px;word-break:break-word}
+:focus-visible{outline:3px solid var(--found);outline-offset:2px}
+
+.wrap{max-width:1320px;margin:0 auto;padding:28px 24px 64px;display:grid;grid-template-columns:250px minmax(0,1fr);gap:36px}
+header.top{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:16px 40px;border-bottom:2px solid var(--ink);padding-bottom:18px}
+header.top h1{margin:0;font-stretch:68%;font-weight:800;font-size:clamp(2rem,4.6vw,3.4rem);line-height:.95;letter-spacing:-.01em}
+header.top p{margin:0;max-width:52ch;color:var(--muted);font-family:var(--serif);font-size:1rem;line-height:1.55}
+.legend{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px 22px;font-size:.88rem;color:var(--muted);margin-top:-18px}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.legend i{width:14px;height:14px;border-radius:50%;display:inline-block}
+
+nav.list{position:sticky;top:calc(16px + env(safe-area-inset-top,0px));align-self:start;display:flex;flex-direction:column;gap:2px;max-height:calc(100vh - 32px - env(safe-area-inset-top,0px));overflow-y:auto;padding-right:4px}
+nav.list .yr{font-weight:800;font-stretch:70%;font-size:1.15rem;color:var(--muted);padding:12px 12px 2px;border-top:1px solid var(--rule);margin-top:6px}
+nav.list .yr:first-child{border-top:none;margin-top:0;padding-top:0}
+.related{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.85rem;color:var(--muted)}
+.related button{all:unset;cursor:pointer;font-weight:600;color:var(--ink);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule)}
+.related button:hover{text-decoration-color:var(--ink)}
+.related button:focus-visible{outline:3px solid var(--found);outline-offset:2px}
+nav.list button{all:unset;cursor:pointer;display:grid;grid-template-columns:1fr;padding:10px 12px;border-left:3px solid transparent;border-radius:0 6px 6px 0}
+nav.list button:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
+nav.list button[aria-selected="true"]{border-left-color:var(--ink);background:var(--panel)}
+nav.list button:focus-visible{outline:3px solid var(--found);outline-offset:-3px}
+nav.list .n{font-weight:700;font-size:1rem;font-stretch:88%}
+nav.list .d{font-size:.8rem;color:var(--muted)}
+
+main{min-width:0}
+.attack-head{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-bottom:22px}
+.attack-head h2{margin:0;font-stretch:66%;font-weight:800;font-size:clamp(2.2rem,5.4vw,4.4rem);line-height:.92;letter-spacing:-.01em}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.facts div{padding:10px 14px 12px 0}
+.facts dt{font-size:.78rem;color:var(--muted);margin-bottom:2px}
+.facts dd{margin:0;font-size:.95rem;font-weight:500}
+.trustbreak{display:flex;gap:12px;align-items:baseline;font-family:var(--serif);font-size:1.05rem}
+.trustbreak b{font-family:var(--sans);font-weight:700;font-size:.85rem;white-space:nowrap;padding:3px 9px;border:1.5px solid var(--ink);border-radius:999px}
+.note{font-family:var(--serif);font-size:.95rem;background:var(--panel);border-left:3px solid var(--origin);padding:10px 14px;color:var(--ink)}
+
+.waves{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 6px}
+.waves button{all:unset;cursor:pointer;padding:7px 14px;border:1.5px solid var(--rule);border-radius:999px;font-size:.9rem;font-weight:600;font-stretch:90%}
+.waves button[aria-selected="true"]{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.waves button:focus-visible{outline:3px solid var(--found);outline-offset:2px}
+.lineage{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:.82rem;color:var(--muted);margin-bottom:6px}
+.lineage span.arrow{opacity:.6}
+
+/* the chain */
+.chain{display:grid;grid-template-columns:minmax(0,1fr) 34px minmax(0,1fr) 34px minmax(0,1fr);align-items:stretch}
+.lane{background:var(--panel);border-radius:10px;padding:0 0 10px;border-top:6px solid var(--c);min-width:0}
+.lane h3{margin:0;padding:14px 16px 10px;font-size:1.25rem;font-stretch:75%;font-weight:800;color:var(--c);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.lane h3 small{font-size:.78rem;font-weight:500;color:var(--muted);font-stretch:100%}
+.lane.origin{--c:var(--origin);--cb:var(--origin-bg)}
+.lane.spread{--c:var(--spread);--cb:var(--spread-bg)}
+.lane.persist{--c:var(--persist);--cb:var(--persist-bg)}
+.steps{list-style:none;margin:0;padding:0 14px}
+.step{position:relative;display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;padding:8px 0 14px}
+.step:not(:last-child)::before{content:"";position:absolute;left:14px;top:38px;bottom:-6px;width:2px;background:var(--c);opacity:.35}
+.num{width:30px;height:30px;border-radius:50%;background:var(--c);color:var(--panel);display:grid;place-items:center;font-weight:800;font-size:.9rem;z-index:1}
+.step h4{margin:4px 0 3px;font-size:.98rem;font-weight:700;line-height:1.25}
+.step p{margin:0;font-family:var(--serif);font-size:.9rem;line-height:1.5;color:var(--ink)}
+.step p .dim{color:var(--muted)}
+.gap{display:grid;place-items:center}
+.gap svg{width:26px;height:26px;color:var(--muted)}
+
+.found{margin-top:18px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:start;background:var(--found-bg);border-radius:10px;padding:14px 16px}
+.found .tag{font-weight:800;font-stretch:75%;font-size:1.15rem;color:var(--found)}
+.found p{margin:0;font-family:var(--serif);font-size:.95rem;line-height:1.55}
+.sources{margin-top:18px;font-size:.85rem;color:var(--muted)}
+.sources a{margin-right:14px;display:inline-block}
+
+@media (max-width:1100px){
+  .chain{grid-template-columns:minmax(0,1fr);gap:0}
+  .gap{height:34px}
+  .gap svg{transform:rotate(90deg)}
+}
+@media (max-width:820px){
+  .wrap{grid-template-columns:minmax(0,1fr);gap:22px;padding:20px 16px 48px}
+  nav.list{position:static;flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:6px;scrollbar-width:thin}
+  nav.list button{border-left:none;border-bottom:3px solid transparent;border-radius:6px 6px 0 0;white-space:nowrap;padding:8px 10px}
+  nav.list button[aria-selected="true"]{border-bottom-color:var(--ink)}
+  nav.list{max-height:none;overflow-y:visible}
+  nav.list .yr{border-top:none;margin-top:0;padding:8px 4px 0 10px;align-self:center;white-space:nowrap}
+  .legend{margin-top:-8px}
+}
+@media (prefers-reduced-motion:no-preference){
+  .chain.enter .lane{animation:rise .35s ease-out both}
+  .chain.enter .lane:nth-of-type(3){animation-delay:.08s}
+  .chain.enter .lane:nth-of-type(5){animation-delay:.16s}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Supply chain attack traces</h1>
+    <p>Twenty-two attacks from 2017 to 2026. For each one: where it started, how it travelled through trusted software or partners, and how it held on once inside. Pick an attack to trace its chain.</p>
+  </header>
+  <div class="legend" aria-hidden="true">
+    <span><i style="background:var(--origin)"></i>Origin: how the attacker got a foothold upstream</span>
+    <span><i style="background:var(--spread)"></i>Propagation: how it reached downstream victims</span>
+    <span><i style="background:var(--persist)"></i>Persistence: how it stayed</span>
+    <span><i style="background:var(--found)"></i>Discovery</span>
+  </div>
+  <nav class="list" role="tablist" aria-label="Attacks" id="nav"></nav>
+  <main id="main" role="tabpanel" aria-live="polite"></main>
+</div>
+
+<script>
+const ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>';
+
+const ATTACKS = [
+{
+ id:"solarwinds", sort:"2020-03", kind:"Build system", related:[], name:"SolarWinds Orion", short:"SUNBURST, 2019–2020",
+ facts:{When:"Sep 2019 – Dec 2020", Actor:"APT29 / Cozy Bear (Russian SVR), tracked as UNC2452 and NOBELIUM", Reach:"~18,000 Orion customers got the trojan; ~100 picked for hands-on intrusion (US Treasury, Commerce, DHS, Microsoft, FireEye and others)"},
+ trust:"The build server. Source code stayed clean; the compiled, signed DLL did not.",
+ origin:[
+  ["Break into SolarWinds","Attackers are inside the corporate network by September 2019. The initial entry vector was never conclusively established."],
+  ["Dry run","October 2019: harmless test code is slipped into Orion 2019.4 to confirm tampering survives the release process unnoticed."],
+  ["Plant SUNSPOT on the build server","From February 2020 SUNSPOT watches for `MsBuild.exe` compiling Orion, swaps in a backdoored source file for the duration of the build, then restores the original."]
+ ],
+ spread:[
+  ["Signed like any update","`SolarWinds.Orion.Core.BusinessLayer.dll` with SUNBURST inside is compiled and signed with SolarWinds' real certificate, shipping in Orion 2019.4 HF5 through 2020.2.1 (Mar–Jun 2020)."],
+  ["Customers patch","About 18,000 organisations install it through normal update processes."],
+  ["Quiet check-in","SUNBURST waits 12–14 days, skips hosts running security or forensic tools, then beacons to subdomains of `avsvmcloud[.]com` that encode the victim's AD domain."],
+  ["Pick victims","Operators choose targets. For those, DNS answers with a CNAME to dedicated C2, and TEARDROP / RAINDROP loaders drop Cobalt Strike."]
+ ],
+ persist:[
+  ["Blend into Orion traffic","C2 traffic imitates the Orion Improvement Program protocol; attacker hostnames were chosen to match each victim's naming scheme."],
+  ["Own identity: Golden SAML","Lateral movement to AD FS, theft of the token-signing certificate, then forged SAML tokens to act as any user."],
+  ["Live in the cloud","Credentials added to Azure AD applications and service principals; mailbox access in Microsoft 365. This access outlives removal of the Orion DLL."]
+ ],
+ found:"FireEye found it in December 2020 while investigating the theft of its own red-team tools: a new MFA device registered to an employee led back to Orion. Public disclosure on 13 Dec 2020.",
+ sources:[["CrowdStrike: SUNSPOT analysis","https://www.crowdstrike.com/blog/sunspot-malware-technical-analysis/"]]
+},
+{
+ id:"xz", sort:"2024-02", kind:"Maintainer takeover", related:[], name:"XZ Utils backdoor", short:"CVE-2024-3094, 2021–2024",
+ facts:{When:"2021 – 29 Mar 2024", Actor:"“Jia Tan” (JiaT75) plus sockpuppets; unattributed, widely assessed as state-level tradecraft", Reach:"Backdoored xz 5.6.0 / 5.6.1 reached Debian unstable/testing, Fedora 40 beta and Rawhide, openSUSE Tumbleweed and Kali before any stable release"},
+ trust:"The maintainer. A patient social-engineering campaign turned an attacker into a trusted co-maintainer of a one-person project.",
+ origin:[
+  ["Build a trusted identity","2021: “Jia Tan” begins contributing useful patches to xz/liblzma, maintained almost single-handedly by a volunteer."],
+  ["Apply pressure","2022: sockpuppet accounts complain on the mailing list about slow releases and push for a new maintainer."],
+  ["Get the keys","Jia Tan becomes co-maintainer and by 2023 signs releases and controls the release tarballs."],
+  ["Hide the payload in test data","February 2024: binary “corrupt” test files (`bad-3-corrupt_lzma2.xz`, `good-large_compressed.lzma`) carry the encrypted backdoor."]
+ ],
+ spread:[
+  ["Tarball-only trigger","A modified `build-to-host.m4` exists only in the release tarballs, not in git. During `./configure` on x86-64 Linux deb/rpm builds it extracts the payload into liblzma."],
+  ["Ship 5.6.0 and 5.6.1","24 Feb and 9 Mar 2024. Accounts linked to the campaign ask distributions to pick up the new versions quickly."],
+  ["Distributions package it","Rolling and pre-release distros build and ship the backdoored liblzma."]
+ ],
+ persist:[
+  ["Ride into sshd","Many distros patch OpenSSH to link libsystemd for `sd_notify`, which loads liblzma. The backdoor ends up inside sshd."],
+  ["IFUNC hook","A GNU indirect-function resolver runs at load time and hooks `RSA_public_decrypt`."],
+  ["Key-locked remote execution","Commands signed with the attacker's Ed448 key, embedded in an SSH certificate, run as root before authentication. No one else can trigger it."]
+ ],
+ found:"Andres Freund noticed SSH logins burning ~500 ms of extra CPU and valgrind errors, traced them to liblzma, and posted to oss-security on 29 Mar 2024, weeks before the backdoor would have landed in stable Debian, Fedora and Ubuntu releases.",
+ sources:[["Openwall oss-security disclosure","https://www.openwall.com/lists/oss-security/2024/03/29/4"]]
+},
+{
+ id:"shai", sort:"2025-09b", kind:"Self-spreading registry worm", related:["nx","trivy","chalk"], name:"Shai-Hulud worm", short:"npm worm, 4 waves, 2025–2026",
+ waves:true
+},
+{
+ id:"asus", sort:"2018-06", kind:"Vendor update server", related:["ccleaner"], name:"ShadowHammer / ASUS", short:"Live Update, 2018–2019",
+ facts:{When:"Jun – Nov 2018 (disclosed 25 Mar 2019)", Actor:"Linked by Kaspersky to the ShadowPad / BARIUM cluster, also tied to the 2017 CCleaner attack", Reach:"~57,000 Kaspersky users saw it, estimates run past 1M ASUS PCs; only ~600 machines were actually targeted"},
+ trust:"The vendor's update server and code-signing certificates.",
+ origin:[
+  ["Compromise ASUS","Attackers get into ASUS infrastructure, including the Live Update distribution servers."],
+  ["Use real signing certificates","Two legitimate ASUSTeK code-signing certificates sign the malicious binaries."],
+  ["Trojanize the updater","Malicious code is patched into a legitimate older build of ASUS Live Update, which ships preinstalled on most ASUS laptops."]
+ ],
+ spread:[
+  ["Serve from the official channel","The backdoored `Setup.exe` is delivered from ASUS's own update servers."],
+  ["Mass install","ASUS PCs that auto-update receive it, signed and trusted."],
+  ["Fingerprint silently","The code MD5-hashes the machine's MAC addresses and compares them against ~600 hard-coded target hashes."]
+ ],
+ persist:[
+  ["Dormant on non-targets","On machines that don't match it does nothing, and the legitimate-looking updater stays installed."],
+  ["Stage two for the chosen","On a match it downloads a second-stage backdoor from the lookalike domain `asushotfix[.]com`."],
+  ["Trust as camouflage","A vendor-signed binary from a vendor server is allow-listed by most security tools."]
+ ],
+ found:"Kaspersky detected it in January 2019 and published in March 2019. ASUS released Live Update 3.6.8 with extra verification.",
+ sources:[["Kaspersky Securelist: ShadowHammer","https://securelist.com/operation-shadowhammer-a-high-profile-supply-chain-attack/90380/"]]
+},
+{
+ id:"airbus", sort:"2023-09", kind:"Partner credentials", related:[], name:"Airbus vendor data leak", short:"Third-party access, 2023",
+ facts:{When:"Infection Aug 2023, leak 11 Sep 2023", Actor:"“USDoD”, a cybercriminal active on BreachForums", Reach:"Contact data of ~3,200 Airbus vendors (names, job titles, addresses, emails, phones)"},
+ trust:"A customer's login. This is a third-party access attack rather than a software one: a partner airline's credentials opened a door into Airbus.",
+ note:"On the date: this incident is often listed as January 2023, but public reporting and Hudson Rock's analysis place the infection in August 2023 and the leak on 11 September 2023.",
+ origin:[
+  ["Pirated software","A Turkish Airlines employee tries to download a pirated Microsoft .NET Framework and gets a malware dropper instead."],
+  ["RedLine infostealer","RedLine harvests saved browser credentials, including the employee's access to an Airbus web portal."],
+  ["Credentials reach the attacker","The stolen credential logs end up with USDoD."]
+ ],
+ spread:[
+  ["Log in as a trusted partner","USDoD signs into the Airbus portal with the airline employee's legitimate account."],
+  ["Export the vendor database","Records for ~3,200 companies in Airbus's supplier network are pulled, including Thales, Aerolux and AVIC Cabin Systems contacts."],
+  ["Cascade to suppliers","Defence-linked suppliers become targets for phishing and follow-on attacks."]
+ ],
+ persist:[
+  ["Valid account, no implant","Access depends on a working partner credential and lasts until it is reset or revoked. No malware inside Airbus was needed."],
+  ["Public leak and threats","Data posted on BreachForums on 11 Sep 2023, with threats of similar leaks against defence contractors."]
+ ],
+ found:"Hudson Rock traced USDoD's claim to the infected Turkish Airlines machine, and Airbus's CERT confirmed that was the entry point.",
+ sources:[["Krebs on Security","https://krebsonsecurity.com/2023/09/fbi-hacker-dropped-stolen-airbus-data-on-9-11/"],["Computer Weekly","https://www.computerweekly.com/news/366552002/Data-on-over-3000-Airbus-suppliers-leaked-after-breach"]]
+},
+{
+ id:"3cx", sort:"2023-03", kind:"Build system, cascading", related:[], name:"3CX desktop app", short:"Double supply chain, 2023",
+ facts:{When:"2022 – Mar 2023", Actor:"UNC4736, North Korea-nexus, linked to Lazarus / AppleJeus", Reach:"3CX serves ~600k companies and ~12M daily users; the Gopuram backdoor went to a handful of crypto firms"},
+ trust:"An employee's personal machine, then the build environment. The first documented case of one supply chain attack causing another.",
+ origin:[
+  ["First supply chain: X_TRADER","Trading Technologies' X_TRADER, retired in 2020 but still downloadable, was trojanized on TT's own site and signed with a TT certificate valid until Oct 2022."],
+  ["An employee installs it","A 3CX employee installs X_TRADER on a personal computer in 2022, and the VEILEDSIGNAL backdoor lands."],
+  ["Steal credentials, move laterally","Corporate credentials taken from that machine get the attackers into 3CX's network."],
+  ["Reach the build systems","TAXHAUL (Windows) and COLDCAT (macOS) are planted in the build environments."]
+ ],
+ spread:[
+  ["Second supply chain: 3CX app","A trojanized `ffmpeg.dll` and a tampered `d3dcompiler_47.dll` are bundled into signed 3CXDesktopApp builds (Windows 18.12.407/416, macOS 18.11.1213 to 18.12.416)."],
+  ["Official updates","Customers receive it through 3CX's normal installers and auto-update."],
+  ["Sleep, then fetch","After ~7 days the side-loaded DLL decrypts shellcode appended to `d3dcompiler_47.dll` and downloads .ico files from a GitHub repo; data appended to each icon hides the C2 URL."],
+  ["Steal, then select","The ICONIC infostealer grabs browser data; selected cryptocurrency companies receive the Gopuram backdoor."]
+ ],
+ persist:[
+  ["Hide inside a trusted app","DLL side-loading means the legitimately signed 3CX executable loads the malware every time it starts."],
+  ["Hold the build environment","TAXHAUL persisted on 3CX systems through DLL search-order hijacking of legitimate Windows services."]
+ ],
+ found:"EDR products flagged the signed app from around 22 Mar 2023, with public confirmation on 29–30 Mar. Mandiant then traced the root cause back to X_TRADER.",
+ sources:[["Mandiant / Google Cloud: 3CX","https://cloud.google.com/blog/topics/threat-intelligence/3cx-software-supply-chain-compromise"]]
+},
+{
+ id:"okta", sort:"2023-10", kind:"Vendor support system", related:[], name:"Okta support system", short:"HAR file tokens, 2023",
+ facts:{When:"28 Sep – 17 Oct 2023", Actor:"Unattributed", Reach:"Files from 134 customers accessed; sessions hijacked at 5, including 1Password, BeyondTrust and Cloudflare; later a report of every support-system user's name and email"},
+ trust:"An identity provider's support desk, and the session tokens customers handed it for troubleshooting.",
+ origin:[
+  ["Personal profile on a work laptop","An Okta employee signed into a personal Google profile in Chrome on a company laptop, and a service-account credential was saved there."],
+  ["Personal account compromised","The employee's personal Google account or device was breached, exposing the saved credential."],
+  ["Into the support system","That service account could access Okta's customer support case management system, separate from the production Okta service."]
+ ],
+ spread:[
+  ["Harvest HAR files","Customers upload HTTP Archive files to support tickets. These contained live session tokens."],
+  ["Replay admin sessions","Replayed tokens opened customers' Okta admin consoles: 1Password on 29 Sep, BeyondTrust on 2 Oct, Cloudflare on 18 Oct."],
+  ["Pivot inside customers","The attacker tried to create admin users and API tokens and requested admin reports inside customer tenants."]
+ ],
+ persist:[
+  ["Tokens, not malware","No implant anywhere. Persistence relied on valid session tokens and any backdoor accounts or API tokens created in customer tenants."],
+  ["Quiet service account","Activity by the service account didn't raise alerts, giving about three weeks of access."],
+  ["Bulk data for later","A report listing all support-system users' names and emails was downloaded, useful for future phishing."]
+ ],
+ found:"BeyondTrust alerted Okta on 2 Oct 2023; Okta confirmed on 19 Oct and disclosed on 20 Oct. On 29 Nov the scope expanded to all support-system users.",
+ sources:[["Okta security: HAR file incident","https://sec.okta.com/harfiles"]]
+},
+{
+ id:"litellm", sort:"2026-03b", kind:"Registry credentials via CI", related:["trivy","shai"], name:"LiteLLM backdoor", short:"PyPI, TeamPCP, 2026",
+ facts:{When:"19 – 27 Mar 2026", Actor:"TeamPCP", Reach:"litellm 1.82.7 and 1.82.8 live on PyPI for hours; ~3.4M daily downloads, pulled in transitively by DSPy, MLflow, CrewAI and OpenHands"},
+ trust:"A security scanner running in CI. Credentials stolen by a poisoned Trivy let the attacker publish around LiteLLM's own pipeline.",
+ origin:[
+  ["Poison the scanner","19 Mar 2026: TeamPCP compromises Trivy, a widely used vulnerability scanner, in a campaign that also hit npm (CanisterWorm) and Checkmarx KICS."],
+  ["Scanner runs in CI","LiteLLM's CI pipeline runs the poisoned Trivy, which harvests secrets from the runner."],
+  ["Steal publishing credentials","The maintainer's PyPI publishing credentials are taken."]
+ ],
+ spread:[
+  ["Publish around the pipeline","24 Mar, 10:39 UTC: 1.82.7 and 1.82.8 are uploaded straight to PyPI, bypassing GitHub CI. GitHub releases stop at 1.82.6."],
+  ["Two triggers","1.82.7 hides the payload in `proxy_server.py` (runs on import). 1.82.8 adds `litellm_init.pth`, which runs at every Python start, even pip or an IDE language server."],
+  ["Harvest and exfiltrate","Collects SSH keys, .env files, cloud, Kubernetes and database secrets and wallets; encrypts with AES-256 plus RSA-4096; POSTs `tpcp.tar.gz` to `models.litellm[.]cloud`, registered the day before."],
+  ["Move through Kubernetes","A second stage uses stolen cluster credentials to compromise Kubernetes environments."],
+  ["Suppress the alarm","Bot accounts flood the GitHub disclosure issue, and the stolen maintainer account closes it as “not planned”."]
+ ],
+ persist:[
+  ["systemd backdoor","A service polls `checkmarx[.]zone` every 50 minutes for new payloads, borrowing a security brand to slip past DNS allow-lists."],
+  [".pth autorun","The .pth file re-runs the loader in every Python process in that environment."],
+  ["The cascade continues","Credentials stolen from LiteLLM victims are used to backdoor telnyx 4.87.1 and 4.87.2 on PyPI on 27 Mar."]
+ ],
+ found:"Found by accident: a FutureSearch researcher hit runaway processes and 100% CPU caused by the .pth loader. PyPI quarantined the project within hours, and LiteLLM shipped 1.83.0 from a rebuilt CI pipeline.",
+ sources:[["Datadog Security Labs","https://securitylabs.datadoghq.com/articles/litellm-compromised-pypi-teampcp-supply-chain-campaign/"],["Trend Micro","https://www.trendmicro.com/en_us/research/26/c/inside-litellm-supply-chain-compromise.html"],["LiteLLM security update","https://docs.litellm.ai/blog/security-update-march-2026"],["FutureSearch","https://futuresearch.ai/blog/litellm-pypi-supply-chain-attack/"]]
+},
+{
+ id:"notpetya", sort:"2017-06", kind:"Vendor update server", related:[], name:"NotPetya / M.E.Doc", short:"Ukrainian tax software, 2017",
+ facts:{When:"Apr – 27 Jun 2017", Actor:"Sandworm (Russian GRU Unit 74455)", Reach:"Every organisation filing Ukrainian taxes used M.E.Doc; the worm then spread worldwide (Maersk, Merck, FedEx/TNT, Mondelez), with damage estimated around $10B"},
+ trust:"The update server of a small accounting-software vendor that nearly every business in Ukraine was required to use.",
+ origin:[
+  ["Compromise Linkos Group","Attackers gain access to the developer of M.E.Doc and its update infrastructure."],
+  ["Backdoor the updates","Updates released in April, May and June 2017 carry a backdoored `ZvitPublishedObjects.dll` that collects company tax IDs, proxy settings and credentials."]
+ ],
+ spread:[
+  ["Trigger through the updater","27 Jun 2017: the M.E.Doc update process (`EzVit.exe`) launches the NotPetya payload on customer machines."],
+  ["Worm across networks","Spreads using EternalBlue / EternalRomance and stolen credentials with PsExec and WMIC, jumping from Ukrainian offices into global corporate networks."],
+  ["Destroy, not ransom","Overwrites the MBR and encrypts the MFT behind a fake ransom note. Recovery was not possible, so it acted as a wiper."]
+ ],
+ persist:[
+  ["Months of quiet access","The backdoor sat in M.E.Doc installations for about three months before the destructive stage, giving remote access to every customer."],
+  ["Reboot to finish","A scheduled task forces a reboot so the disk-encryption stage runs before anyone can respond."]
+ ],
+ found:"ESET and Cisco Talos traced the outbreak back to M.E.Doc updates within days; Ukrainian police seized the vendor's servers in early July 2017.",
+ sources:[["ESET WeLiveSecurity: the M.E.Doc backdoor","https://www.welivesecurity.com/2017/07/04/analysis-of-telebots-cunning-backdoor/"]]
+},
+{
+ id:"ccleaner", sort:"2017-08", kind:"Build system", related:["asus"], name:"CCleaner", short:"Avast / Piriform, 2017",
+ facts:{When:"Mar – Sep 2017", Actor:"Linked to the APT17 / BARIUM cluster (same ecosystem later tied to ShadowHammer)", Reach:"~2.27M installs of the trojanized version; second stage delivered to ~40 PCs at large tech companies"},
+ trust:"A developer workstation, then the official build and signing process.",
+ origin:[
+  ["Remote into a developer PC","March 2017: attackers log into a Piriform developer workstation through TeamViewer using stolen credentials."],
+  ["Move to the build environment","They spread to other machines and plant ShadowPad on some of them."],
+  ["Compile the backdoor in","Malicious code is built into CCleaner 5.33 and CCleaner Cloud 1.07 and signed with Piriform's valid certificate."]
+ ],
+ spread:[
+  ["Official download","15 Aug 2017: the signed build is released through Piriform's normal download and update channels."],
+  ["Profile every install","Stage one sends system details to a hard-coded IP, with a domain-generation fallback."],
+  ["Hand-pick targets","Stage two goes only to machines on domains of chosen companies, including large technology and telecom firms."]
+ ],
+ persist:[
+  ["Hide in the registry","The second-stage loader stores its payload in registry keys and loads via a patched system DLL."],
+  ["Planned third stage","ShadowPad was staged for selected victims, giving long-term remote access."]
+ ],
+ found:"Morphisec and Cisco Talos spotted the beacon in September 2017, about a month after release; Avast pushed a clean version and took down the C2.",
+ sources:[["Cisco Talos: CCleaner","https://blog.talosintelligence.com/2017/09/avast-distributes-malware.html"]]
+},
+{
+ id:"eventstream", sort:"2018-09", kind:"Maintainer takeover", related:["xz"], name:"event-stream (npm)", short:"Copay wallet theft, 2018",
+ facts:{When:"Sep – Nov 2018", Actor:"“right9ctrl”, unattributed", Reach:"event-stream had ~2M weekly downloads, but the payload only activated inside BitPay's Copay wallet builds"},
+ trust:"An abandoned package whose tired maintainer gave publish rights to a helpful stranger.",
+ origin:[
+  ["Offer to help","A new contributor asks to take over maintenance of event-stream; the original author, no longer using it, agrees."],
+  ["Add a dependency","September 2018: `flatmap-stream` is added as a dependency. Its malicious code arrives in a later version, only in the minified npm build."]
+ ],
+ spread:[
+  ["Everyone downloads it","event-stream 3.3.6 pulls the payload into millions of installs."],
+  ["Unlock only in one app","The payload is encrypted with the host package's description as the key, so it only decrypts inside the Copay build."],
+  ["Ship inside the wallet","Copay releases built during the window carry the code to end users' phones and desktops."]
+ ],
+ persist:[
+  ["Live in shipped apps","The code stays inside released wallet apps until users update to a fixed version."],
+  ["Steal big wallets","It targets wallets holding large balances and sends private keys to an attacker server."]
+ ],
+ found:"A developer investigating a deprecation warning traced it to flatmap-stream and opened a GitHub issue on 20 Nov 2018.",
+ sources:[["GitHub issue #116","https://github.com/dominictarr/event-stream/issues/116"]]
+},
+{
+ id:"codecov", sort:"2021-01", kind:"CI tool script", related:["tjactions"], name:"Codecov Bash Uploader", short:"CI secrets, 2021",
+ facts:{When:"31 Jan – 1 Apr 2021", Actor:"Unattributed", Reach:"~29,000 Codecov customers; downstream effects at HashiCorp (signing key), Twilio, Rapid7 and others"},
+ trust:"A script that CI pipelines downloaded and ran on every build without checking it.",
+ origin:[
+  ["Leaked credential","An error in Codecov's Docker image build process exposed a credential for its cloud storage."],
+  ["Edit the hosted script","The attacker modifies the Bash Uploader script that customers fetch with `curl | bash`."]
+ ],
+ spread:[
+  ["Runs in customer CI","Every pipeline using the uploader (directly or through the GitHub Action, CircleCI orb and others) runs the altered script."],
+  ["One line, all secrets","The added line sends the CI environment, including tokens and keys, to an attacker-controlled IP."],
+  ["Pivot with stolen tokens","Harvested credentials open private repos and infrastructure at downstream companies."]
+ ],
+ persist:[
+  ["Unchanged for two months","The altered script stays live because almost no one verifies its checksum."],
+  ["Credentials outlast the fix","Stolen secrets stay valid until each customer rotates them."]
+ ],
+ found:"A customer compared the script's SHA-1 checksum with the one on GitHub, found a mismatch and reported it on 1 Apr 2021.",
+ sources:[["Codecov security update","https://about.codecov.io/security-update/"]]
+},
+{
+ id:"kaseya", sort:"2021-07", kind:"Vendor management platform", related:[], name:"Kaseya VSA", short:"REvil ransomware via MSPs, 2021",
+ facts:{When:"2 Jul 2021", Actor:"REvil ransomware group", Reach:"~60 managed service providers and up to ~1,500 downstream businesses; Sweden's Coop closed ~800 stores"},
+ trust:"The remote-management tool that MSPs use to push software to all their clients.",
+ origin:[
+  ["Zero-days in on-prem VSA","REvil exploits unpatched vulnerabilities (including CVE-2021-30116) in internet-facing Kaseya VSA servers, bypassing authentication."],
+  ["Take over the console","With admin access, attackers can run procedures on every managed endpoint."]
+ ],
+ spread:[
+  ["Fake hotfix","A procedure named like a Kaseya agent hotfix is pushed to all endpoints managed by each compromised MSP."],
+  ["Disable defences","PowerShell switches off parts of Microsoft Defender; the Kaseya working folder was already excluded from antivirus scanning."],
+  ["Side-load the ransomware","`agent.crt` is decoded with certutil, dropping an old signed Defender binary that loads REvil from `mpsvc.dll`."]
+ ],
+ persist:[
+  ["Speed over stealth","The goal was encryption before a holiday weekend, not long-term access."],
+  ["Trusted agent as cover","Everything ran under the trusted Kaseya agent, so it looked like normal management activity."]
+ ],
+ found:"MSPs reported mass encryption on 2 Jul 2021; Kaseya told customers to shut down VSA servers. A universal decryptor was obtained on 22 Jul.",
+ sources:[]
+},
+{
+ id:"torchtriton", sort:"2022-12a", kind:"Dependency confusion", related:[], name:"PyTorch torchtriton", short:"Nightly builds, 2022",
+ facts:{When:"25 – 30 Dec 2022", Actor:"Unattributed (claimed to be a researcher)", Reach:"~2,300 downloads of the malicious package by PyTorch-nightly users on Linux"},
+ trust:"The package resolver. pip checked the public index before PyTorch's own index for a dependency name.",
+ origin:[
+  ["Claim the name on PyPI","An attacker uploads a package called `torchtriton`, the same name as a dependency hosted on PyTorch's own nightly index."]
+ ],
+ spread:[
+  ["pip prefers PyPI","Installs using `--extra-index-url` pulled the PyPI copy instead of PyTorch's."],
+  ["Harvest the machine","A binary named `triton` collects system info, `/etc/passwd`, `~/.gitconfig`, SSH keys and the first 1,000 files in the home folder."],
+  ["Exfiltrate over DNS","Data is sent in encrypted DNS queries to an attacker domain."]
+ ],
+ persist:[
+  ["One-shot theft","No persistence mechanism; the damage is the stolen keys and files."]
+ ],
+ found:"PyTorch disclosed on 30 Dec 2022, renamed the dependency to `pytorch-triton` and reserved a placeholder on PyPI.",
+ sources:[["PyTorch blog","https://pytorch.org/blog/compromised-nightly-dependency/"]]
+},
+{
+ id:"circleci", sort:"2022-12b", kind:"CI/CD platform", related:[], name:"CircleCI", short:"Customer secrets, 2022–2023",
+ facts:{When:"16 Dec 2022 – 4 Jan 2023", Actor:"Unattributed", Reach:"All customers told to rotate every secret stored in CircleCI"},
+ trust:"An engineer's laptop and an SSO session cookie, then the platform that holds customers' deployment secrets.",
+ origin:[
+  ["Malware on a laptop","Malware on an engineer's laptop, missed by antivirus, steals a valid 2FA-backed SSO session cookie."],
+  ["Impersonate the engineer","The attacker replays the session and escalates into production systems."]
+ ],
+ spread:[
+  ["Take encrypted secrets and the keys","Customer environment variables, tokens and keys are exfiltrated, along with encryption keys pulled from a running process."],
+  ["Use them downstream","Stolen tokens give access to customers' repos and cloud accounts."]
+ ],
+ persist:[
+  ["Session, not malware","The foothold was a valid session; no MFA prompt was triggered."],
+  ["Secrets outlast the breach","Until each customer rotated, their CI secrets stayed usable."]
+ ],
+ found:"A customer flagged suspicious GitHub OAuth activity on 29 Dec 2022; CircleCI disclosed on 4 Jan 2023.",
+ sources:[["CircleCI incident report","https://circleci.com/blog/jan-4-2023-incident-report/"]]
+},
+{
+ id:"polyfill", sort:"2024-06", kind:"Web script / CDN", related:["adform"], name:"Polyfill.io", short:"CDN takeover, 2024",
+ facts:{When:"Feb – Jun 2024", Actor:"Funnull, the company that bought the domain", Reach:"Estimates from 100k to 380k+ websites embedding cdn.polyfill.io"},
+ trust:"A domain. Sites loaded a script from a URL whose ownership quietly changed hands.",
+ origin:[
+  ["Buy the project","February 2024: the polyfill.io domain and GitHub account are sold to Funnull. The original author warns sites to remove it."]
+ ],
+ spread:[
+  ["Every page load","Hundreds of thousands of sites keep loading `cdn.polyfill.io` scripts on every visit."],
+  ["Inject selectively","Code redirects some mobile visitors to scam and betting sites, only at certain times and avoiding admins and analytics tools."]
+ ],
+ persist:[
+  ["Server-side switch","No files on visitor devices; the operator could change the payload at any time."],
+  ["Related domains","The same operator ran other CDN domains serving popular libraries."]
+ ],
+ found:"Sansec reported the injection in June 2024. Cloudflare and Fastly offered clean mirrors, Google warned advertisers, and the registrar suspended the domain.",
+ sources:[["Sansec","https://sansec.io/research/polyfill-supply-chain-attack"]]
+},
+{
+ id:"tjactions", sort:"2025-03", kind:"CI action tags", related:["trivy","codecov"], name:"tj-actions/changed-files", short:"GitHub Action, 2025",
+ facts:{When:"Nov 2024 – 15 Mar 2025", Actor:"Unattributed; the initial target appears to have been Coinbase", Reach:"~23,000 repos used the action; CVE-2025-30066"},
+ trust:"Mutable Git tags. Workflows that referenced `@v35` got whatever commit the tag pointed to.",
+ origin:[
+  ["Steal a token from SpotBugs","Late 2024: a `pull_request_target` workflow leaks a SpotBugs maintainer's personal access token."],
+  ["Hop to reviewdog","That access yields a reviewdog maintainer's token; `reviewdog/action-setup` is compromised."],
+  ["Hop to tj-actions","tj-actions used reviewdog in its own CI, leaking the tj-actions bot token."]
+ ],
+ spread:[
+  ["Retag every version","14 Mar 2025: all tags of `tj-actions/changed-files` are pointed at a malicious commit."],
+  ["Dump runner memory","The action reads the GitHub Actions runner process memory and prints secrets into build logs."],
+  ["Public logs leak secrets","For public repos, anyone could read those logs."]
+ ],
+ persist:[
+  ["No host implant","Nothing persisted on runners; the harm was the exposed secrets."],
+  ["Chained token theft","Each hop reused a stolen token from the previous project."]
+ ],
+ found:"StepSecurity Harden-Runner flagged unexpected outbound calls on 14 Mar 2025; Unit 42 later traced the chain back to SpotBugs.",
+ sources:[["Unit 42","https://unit42.paloaltonetworks.com/github-actions-supply-chain-attack/"]]
+},
+{
+ id:"nx", sort:"2025-08", kind:"CI workflow injection", related:["shai"], name:"s1ngularity / Nx", short:"AI CLIs turned into stealers, 2025",
+ facts:{When:"26 – 27 Aug 2025", Actor:"Unattributed", Reach:"Credentials from ~1,000+ systems; seeded later Shai-Hulud waves"},
+ trust:"A GitHub Actions workflow, then developers' own AI coding assistants.",
+ origin:[
+  ["Inject into a workflow","A `pull_request_target` workflow in the Nx repo was vulnerable to injection through a PR title, leaking the npm publish token."],
+  ["Publish malicious Nx","Trojanized `nx` and plugin versions are published with a `postinstall` script (`telemetry.js`)."]
+ ],
+ spread:[
+  ["Search for secrets","Looks for wallets, SSH keys, .env files and tokens on macOS and Linux."],
+  ["Recruit the AI assistant","If Claude Code, Gemini CLI or Amazon Q is installed, runs it with permission-bypass flags and a prompt to inventory sensitive files."],
+  ["Exfiltrate to GitHub","Encoded results go to a public `s1ngularity-repository` in the victim's own account."]
+ ],
+ persist:[
+  ["Sabotage the shell","Appends a shutdown command to `~/.bashrc` and `~/.zshrc`, so every new terminal powers off the machine."],
+  ["Second wave with stolen tokens","Stolen GitHub tokens flip victims' private repos to public."]
+ ],
+ found:"Nx maintainers and Wiz, Socket and others flagged it within hours; npm removed the versions and Nx moved to trusted publishing.",
+ sources:[["Nx security advisory","https://github.com/nrwl/nx/security/advisories/GHSA-cxm3-wv7p-598c"]]
+},
+{
+ id:"chalk", sort:"2025-09a", kind:"Maintainer phishing", related:["shai"], name:"chalk / debug (npm)", short:"Crypto clipper, 2025",
+ facts:{When:"8 Sep 2025", Actor:"Unattributed", Reach:"18 packages (chalk, debug, ansi-styles, strip-ansi and more) with ~2.6B combined weekly downloads"},
+ trust:"A maintainer's inbox. A convincing 2FA-reset email from a lookalike npm domain.",
+ origin:[
+  ["Phish the maintainer","A lookalike `npmjs.help` email asks the maintainer to update 2FA; the fake site captures password and one-time code."]
+ ],
+ spread:[
+  ["Publish 18 packages","Malicious versions of core utilities are published within minutes."],
+  ["Target browsers, not servers","Code hooks `fetch`, XMLHttpRequest and wallet APIs in web pages built with these packages."],
+  ["Swap wallet addresses","Replaces crypto addresses with lookalike attacker addresses across several chains."]
+ ],
+ persist:[
+  ["Baked into bundles","Web apps built during the window ship the code to their users until rebuilt."]
+ ],
+ found:"Aikido and the community spotted it within about two hours; npm pulled the versions and the attacker made very little money.",
+ sources:[["Aikido","https://www.aikido.dev/blog/npm-debug-and-chalk-packages-compromised"]]
+},
+{
+ id:"trivy", sort:"2026-03a", kind:"Security tool / CI action tags", related:["litellm","shai","tjactions"], name:"Trivy / TeamPCP", short:"Scanner poisoned, 2026",
+ facts:{When:"20 Feb – 23 Mar 2026", Actor:"TeamPCP", Reach:"trivy-action, setup-trivy, Trivy v0.69.4 binaries, Docker images, 60+ npm packages (CanisterWorm), Checkmarx KICS; the stepping stone into LiteLLM"},
+ trust:"A vulnerability scanner, which runs inside CI with access to every pipeline secret by design.",
+ origin:[
+  ["Hunt for workflow bugs","From 20 Feb 2026 an automated account scans public repos for exploitable `pull_request_target` workflows."],
+  ["First takeover","28 Feb: a malicious PR against Trivy steals a token and takes over the repository."],
+  ["Incomplete cleanup","Aqua rotates credentials on 1 Mar, but not all at once. The attacker keeps residual access."]
+ ],
+ spread:[
+  ["Force-push the tags","19 Mar, 17:43 UTC: 76 of 77 `trivy-action` tags and all 7 `setup-trivy` tags are moved to imposter commits that spoof real maintainers."],
+  ["Poison every channel","Backdoored Trivy v0.69.4 goes to GitHub Releases, Docker Hub, GHCR and ECR."],
+  ["Steal from runners","`entrypoint.sh` scrapes runner memory for secrets, encrypts them with RSA-4096 and sends them to a lookalike Aqua domain, then runs the real scan so builds look normal."],
+  ["Fan out","Stolen tokens seed CanisterWorm on npm (20 Mar), Checkmarx KICS and OpenVSX extensions (23 Mar), and LiteLLM on PyPI (24 Mar)."]
+ ],
+ persist:[
+  ["systemd backdoor","Developer machines that ran v0.69.4 get a service that polls for new payloads."],
+  ["Imposter commits","Malicious commits reuse original authors, dates and messages, so history looks untouched."],
+  ["Return visits","Leftover credentials let the attacker come back on 22 Mar with new Docker images and deface Aqua's GitHub org."]
+ ],
+ found:"StepSecurity Harden-Runner and Upwind MDR flagged unusual Trivy behaviour on 19–20 Mar; Aqua published GHSA-69fq-xp46-6x23. Only v0.35.0, protected by GitHub's immutable releases, was untouched.",
+ sources:[["Aqua advisory GHSA-69fq-xp46-6x23","https://github.com/aquasecurity/trivy/security/advisories/GHSA-69fq-xp46-6x23"],["StepSecurity","https://www.stepsecurity.io/blog/trivy-compromised-a-second-time---malicious-v0-69-4-release"],["Microsoft Security","https://www.microsoft.com/en-us/security/blog/2026/03/24/detecting-investigating-defending-against-trivy-supply-chain-compromise/"]]
+},
+{
+ id:"axios", sort:"2026-03c", kind:"Maintainer machine compromise", related:["3cx"], name:"axios (npm)", short:"North Korean RAT, 2026",
+ facts:{When:"Mid Mar – 31 Mar 2026", Actor:"UNC1069, a North Korea-nexus financially motivated group (per Google GTIG)", Reach:"axios has 100M+ weekly downloads and ~174k dependent packages; bad versions live ~3 hours"},
+ trust:"The lead maintainer's own computer, compromised by targeted social engineering.",
+ origin:[
+  ["Social-engineer the maintainer","About two weeks earlier a targeted campaign gets a RAT onto the lead maintainer's PC, exposing his npm credentials."],
+  ["Pre-stage a dependency","30 Mar: `plain-crypto-js` 4.2.0, a clean decoy typosquat of crypto-js, is published from a throwaway account; 4.2.1 adds a malicious `postinstall` just before midnight."]
+ ],
+ spread:[
+  ["Publish outside CI","31 Mar, 00:21 UTC: axios 1.14.1 (tagged latest), then 0.30.4 (legacy) at 01:00, published directly from the account instead of through trusted publishing."],
+  ["Phantom dependency","The axios source is unchanged; only the new dependency is added, and axios never imports it."],
+  ["Drop a RAT","The postinstall fetches a platform-specific WAVESHAPER.V2 backdoor for macOS, Windows or Linux."],
+  ["Silence reporters","Community issues about the compromise are deleted from the hijacked account."]
+ ],
+ persist:[
+  ["Remote access trojan","The RAT gives ongoing remote access; on Windows it persists through a hidden batch file and a registry entry disguised as a Microsoft update."],
+  ["Self-cleaning install","The dropper replaces its own files with clean decoys, so `node_modules` looks harmless afterwards."]
+ ],
+ found:"Socket's scanner flagged the malicious dependency within about six minutes. A collaborator raised the alarm and contacted npm; the versions were removed at about 03:15 UTC.",
+ sources:[["Maintainer post-mortem","https://github.com/axios/axios/issues/10636"],["Datadog Security Labs","https://securitylabs.datadoghq.com/articles/axios-npm-supply-chain-compromise/"],["Tenable FAQ","https://tenable.com/blog/faq-about-the-axios-npm-supply-chain-attack-by-north-korea-nexus-threat-actor-unc1069"]]
+},
+{
+ id:"adform", sort:"2026-07", kind:"Web script / ad platform", related:["polyfill"], name:"Adform ad script", short:"Crypto clipper in ads, 2026",
+ facts:{When:"~26 – 27 Jul 2026", Actor:"Unidentified", Reach:"Any site embedding Adform's tracking script; Adform serves ~1.5B ad impressions a day, but the number of affected page loads hasn't been published"},
+ trust:"A third-party tracking script loaded from the vendor's own domain on thousands of client websites.",
+ origin:[
+  ["Breach the ad platform","Attackers get into Adform's infrastructure. How has not been disclosed."],
+  ["Alter the tracking script","`trackpoint-async.js`, served from `s2.adform.net`, gets extra malicious functions appended."]
+ ],
+ spread:[
+  ["Load on client sites","Every site embedding the script serves the altered version to visitors."],
+  ["Watch the clipboard","Checks the clipboard every few seconds and also watches form fields."],
+  ["Swap wallet addresses","Replaces Bitcoin, Ethereum and Tron addresses with attacker-controlled ones."],
+  ["Beacon home","Sends the visitor's IP, the site and the URL path to an attacker server."]
+ ],
+ persist:[
+  ["Page-lifetime only","Nothing is installed on devices; the code runs only while an affected page is open."],
+  ["Browser cache","The altered file may stay in browser caches after the fix, so Adform told users to clear them."]
+ ],
+ found:"Security researcher Kevin Beaumont publicised it on 30–31 Jul 2026, noting activity over the previous week. Adform says it detected the activity on 27 Jul and saw no further distribution after that evening.",
+ sources:[["Kevin Beaumont, DoublePulsar","https://doublepulsar.com/adform-compromised-to-serve-crypto-stealer-via-supply-chain-attack-2f1ec024f33e"],["Adform incident notice","https://site.adform.com/resources/newsroom/security-incident-company-update/"],["Kaspersky","https://www.kaspersky.com/blog/adform-compromise-malicious-ads-cryptocurrency-theft/56257/"]]
+}
+
+];
+
+const SHAI = [
+{
+ id:"w1", tab:"Shai-Hulud (Sep 2025)",
+ facts:{When:"14 – 16 Sep 2025", Actor:"Unattributed", Reach:"500+ npm packages, including @ctrl/tinycolor (~2.2M weekly downloads) and CrowdStrike-published packages"},
+ trust:"Maintainer publish tokens. Every stolen token became a way to infect all of that maintainer's packages.",
+ origin:[
+  ["Seed credentials","Likely seeded by tokens harvested in the late-August 2025 s1ngularity attack on Nx tooling, which took 2,349 credentials from 1,079 systems."],
+  ["First trojanized releases","Malicious `@ctrl/tinycolor` 4.1.1 / 4.1.2 and about 40 other packages are published with stolen maintainer access."]
+ ],
+ spread:[
+  ["postinstall runs bundle.js","A 3.7 MB webpack bundle executes on `npm install`."],
+  ["Scan with TruffleHog","Downloads the legitimate secret scanner and hunts for GitHub, npm and cloud credentials, validating them (e.g. `npm whoami`)."],
+  ["Exfiltrate in public","Creates a public repo named Shai-Hulud in the victim's GitHub holding the dumped secrets, plus a webhook.site endpoint."],
+  ["Self-replicate","`NpmModule.updatePackage` pulls every package the stolen token can publish, injects bundle.js, bumps the version and republishes."]
+ ],
+ persist:[
+  ["Workflow backdoor","Pushes `.github/workflows/shai-hulud-workflow.yml` into repos; it exfiltrates secrets on each run and keeps working after the laptop is cleaned."],
+  ["Repo exposure","Private organisation repos are copied to public “migration” repos, exposing source code."]
+ ],
+ found:"Spotted by the community and researchers at Socket, StepSecurity and others from 15 Sep 2025; npm pulled packages and GitHub revoked exposed tokens.",
+ sources:[["Truesec","https://www.truesec.com/hub/blog/500-npm-packages-compromised-in-ongoing-supply-chain-attack-shai-hulud"]]
+},
+{
+ id:"w2", tab:"2.0 “Second Coming” (Nov 2025)",
+ facts:{When:"21 – 24 Nov 2025", Actor:"Unattributed", Reach:"~700–800 packages and 25,000+ GitHub repos, including Zapier, ENS Domains, PostHog, Postman and AsyncAPI packages"},
+ trust:"Install-time scripts, now running before the install even finishes, on developer laptops and CI runners alike.",
+ origin:[
+  ["More stolen tokens","npm and GitHub tokens from earlier infections republish legitimate packages with a malicious preinstall script."]
+ ],
+ spread:[
+  ["preinstall, not postinstall","Runs earlier in the lifecycle, widening exposure across dev machines and CI/CD."],
+  ["Bring its own runtime","`setup_bun.js` installs Bun, then launches the obfuscated `bun_environment.js`, likely to dodge Node.js monitoring."],
+  ["Harvest local and cloud secrets","TruffleHog on disk plus AWS, Google Cloud and Azure credentials."],
+  ["Exfiltrate to public repos","Repos created with the description “Sha1-Hulud: The Second Coming.”"],
+  ["Worm faster","Backdoors up to 100 of each victim's packages; at peak about 1,000 new malicious repos every 30 minutes."]
+ ],
+ persist:[
+  ["Rogue self-hosted runner","Registers the machine as a GitHub Actions runner named `SHA1HULUD` in `~/.dev-env/`, giving remote code execution that survives reboots."],
+  ["Discussion-triggered backdoor","Adds a `discussion.yaml` workflow so a GitHub Discussion post runs attacker commands on that runner."],
+  ["Wiper fallback","If it can neither steal nor spread, it tries to destroy the user's home directory."]
+ ],
+ found:"Detected by multiple vendors (Wiz, Aikido, Datadog and others) from 24 Nov 2025.",
+ sources:[["Datadog Security Labs","https://securitylabs.datadoghq.com/articles/shai-hulud-2.0-npm-worm/"],["Zscaler","https://www.zscaler.com/blogs/security-research/shai-hulud-v2-poses-risk-npm-supply-chain"],["Unit 42","https://unit42.paloaltonetworks.com/npm-supply-chain-attack/"]]
+},
+{
+ id:"w3", tab:"3.0 (Dec 2025)",
+ facts:{When:"Late Dec 2025", Actor:"Unattributed (same toolkit lineage)", Reach:"Limited; observed in @vietmoney/react-big-calendar"},
+ trust:"Install-time scripts again, with heavier obfuscation and fewer tell-tale behaviours.",
+ origin:[
+  ["Single malicious package","A trojanized npm package carries the new variant."]
+ ],
+ spread:[
+  ["preinstall into Bun","The preinstall script launches `bun_installer.js` via the Bun runtime."],
+  ["Main payload","`environment_source.js` harvests secrets, writes them to disk, then exfiltrates them."]
+ ],
+ persist:[
+  ["Runner code retained","The `SHA1HULUD` GitHub Actions runner logic is still present."],
+  ["Wiper removed","The earlier dead-man switch appears to be gone; core infection and exfiltration are unchanged."]
+ ],
+ found:"Reported by Upwind and others at the end of December 2025. Operational mistakes, such as fetching a mistyped file from GitHub, made it easier to detect.",
+ sources:[["Upwind: Shai-Hulud 3.0","https://www.upwind.io/feed/shai-hulud-3-npm-supply-chain-worm"]]
+},
+{
+ id:"w4", tab:"Mini Shai-Hulud (Apr–Jun 2026)",
+ facts:{When:"29 Apr – Jun 2026", Actor:"TeamPCP, the group behind the Trivy and LiteLLM compromises", Reach:"11 May wave: 404 malicious versions across 172 npm and 2 PyPI packages in under six hours (TanStack, Mistral AI, UiPath, OpenSearch, Guardrails AI), then @antv and Red Hat"},
+ trust:"The release pipeline itself. For the first time the worm didn't need a stolen token and shipped packages with valid provenance.",
+ origin:[
+  ["SAP ecosystem first","29 Apr: `@cap-js/sqlite`, `@cap-js/postgres`, `@cap-js/db-service`, `mbt` and `intercom-client` 7.0.4 are backdoored."],
+  ["Poison the CI cache","11 May: a pull request from a fork triggers a TanStack workflow with write access to the base repo's Actions cache."],
+  ["Hijack trusted publishing","The poisoned cache is restored in the real release job, which publishes via npm's OIDC trusted publishing."]
+ ],
+ spread:[
+  ["Signed malware","Packages go out with valid provenance attestations, so provenance checks pass."],
+  ["Many vectors at once","npm republishing, GitHub repos, CI workflows and developer-tool configs; scrapes Actions runner memory for secrets; Bun used to evade EDR."],
+  ["Worm goes open source","About 12 May the source appears on GitHub; new waves follow (@antv on 19 May, Red Hat Cloud Services on 1 Jun via one employee's GitHub account and orphan commits)."]
+ ],
+ persist:[
+  ["Dependabot disguise","A secret-dumping GitHub Actions workflow is injected, named to look like Dependabot."],
+  ["Developer-tool hooks","Every branch is seeded with `.claude/settings.json` and VS Code configs, so opening the repo in Claude Code or VS Code re-runs the dropper without any npm install."],
+  ["Rogue repos","In the @antv wave alone, 2,700+ attacker repos were created with stolen tokens."]
+ ],
+ found:"Tracked by StepSecurity, Socket, Wiz, Aikido, Upwind and Akamai across each wave.",
+ sources:[["Akamai","https://www.akamai.com/blog/security-research/mini-shai-hulud-worm-returns-goes-public"],["Upwind","https://www.upwind.io/feed/mini-shai-hulud-npm-supply-chain-worm"],["Aikido (@antv wave)","https://www.aikido.dev/blog/mini-shai-hulud-antv-npm-supply-chain-attack"],["The Register (Red Hat)","https://www.theregister.com/security/2026/06/01/shai-hulud-malware-infects-red-hat-npm-packages-downloaded-80k-times-weekly/5249803"]]
+}
+];
+
+const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const fmt = s => esc(s).replace(/`([^`]+)`/g,"<code>$1</code>");
+
+function lane(cls,title,sub,steps,start){
+  return `<section class="lane ${cls}"><h3>${title}<small>${sub}</small></h3><ol class="steps">${
+    steps.map((s,i)=>`<li class="step"><span class="num">${start+i}</span><div><h4>${fmt(s[0])}</h4><p>${fmt(s[1])}</p></div></li>`).join("")
+  }</ol></section>`;
+}
+
+function renderChain(a,parent){
+  const o=a.origin.length, p=a.spread.length;
+  const kind=(parent||a).kind, rel=(parent||a).related||[];
+  const facts = Object.entries(Object.assign({},a.facts,{Vector:kind})).map(([k,v])=>`<div><dt>${k}</dt><dd>${fmt(v)}</dd></div>`).join("");
+  return `
+   <dl class="facts">${facts}</dl>
+   <div class="trustbreak"><b>Trust broke at</b><span>${fmt(a.trust)}</span></div>
+   ${rel.length?`<div class="related">Connected to: ${rel.map(r=>{const x=ATTACKS.find(z=>z.id===r);return x?`<button data-go="${r}">${esc(x.name)}</button>`:""}).join("")}</div>`:""}
+   ${a.note?`<div class="note">${fmt(a.note)}</div>`:""}
+   <div class="chain enter">
+     ${lane("origin","Origin","where it started",a.origin,1)}
+     <div class="gap">${ARROW}</div>
+     ${lane("spread","Propagation","how it moved",a.spread,o+1)}
+     <div class="gap">${ARROW}</div>
+     ${lane("persist","Persistence","how it stayed",a.persist,o+p+1)}
+   </div>
+   <div class="found"><span class="tag">Discovery</span><p>${fmt(a.found)}</p></div>
+   ${a.sources.length?`<div class="sources">Further reading: ${a.sources.map(s=>`<a href="${s[1]}" target="_blank" rel="noopener">${esc(s[0])}</a>`).join("")}</div>`:""}`;
+}
+
+const nav=document.getElementById("nav"), main=document.getElementById("main");
+let current="solarwinds", wave="w1";
+
+function draw(){
+  nav.querySelectorAll("button").forEach(b=>b.setAttribute("aria-selected",b.dataset.id===current));
+  const a=ATTACKS.find(x=>x.id===current);
+  if(a.waves){
+    const w=SHAI.find(x=>x.id===wave);
+    main.innerHTML=`<div class="attack-head"><h2>Shai-Hulud worm</h2>
+      <div class="lineage" aria-label="Lineage"><span>s1ngularity / Nx (Aug 2025)</span><span class="arrow">▸</span><span>Shai-Hulud (Sep 2025)</span><span class="arrow">▸</span><span>2.0 (Nov 2025)</span><span class="arrow">▸</span><span>3.0 (Dec 2025)</span><span class="arrow">▸</span><span>Mini Shai-Hulud by TeamPCP (Apr–Jun 2026)</span></div>
+      <div class="waves" role="tablist" aria-label="Waves">${SHAI.map(x=>`<button role="tab" data-w="${x.id}" aria-selected="${x.id===wave}">${esc(x.tab)}</button>`).join("")}</div>
+      ${renderChain(w,a)}</div>`;
+    main.querySelectorAll(".waves button").forEach(b=>b.onclick=()=>{wave=b.dataset.w;draw();});
+  } else {
+    main.innerHTML=`<div class="attack-head"><h2>${esc(a.name)}</h2>${renderChain(a)}</div>`;
+  }
+  main.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{current=b.dataset.go;draw();main.scrollIntoView({block:"start"});});
+  try{history.replaceState(null,"","#"+current+(a.waves?"-"+wave:""));}catch(e){}
+}
+
+const ORDER=[...ATTACKS].sort((x,y)=>x.sort.localeCompare(y.sort));
+let lastYear="";
+ORDER.forEach(a=>{
+  const yr=a.sort.slice(0,4);
+  if(yr!==lastYear){const h=document.createElement("div");h.className="yr";h.textContent=yr;h.setAttribute("aria-hidden","true");nav.appendChild(h);lastYear=yr;}
+  const b=document.createElement("button");
+  b.setAttribute("role","tab"); b.dataset.id=a.id;
+  b.innerHTML=`<span class="n">${esc(a.name)}</span><span class="d">${esc(a.short)}</span>`;
+  b.onclick=()=>{current=a.id;draw();if(window.innerWidth<=820)main.scrollIntoView({block:"start"});};
+  nav.appendChild(b);
+});
+nav.addEventListener("keydown",e=>{
+  if(!["ArrowDown","ArrowUp","ArrowLeft","ArrowRight"].includes(e.key))return;
+  e.preventDefault();
+  const i=ORDER.findIndex(a=>a.id===current);
+  const d=(e.key==="ArrowDown"||e.key==="ArrowRight")?1:-1;
+  current=ORDER[(i+d+ORDER.length)%ORDER.length].id; draw();
+  const btn=nav.querySelector(`[data-id="${current}"]`); btn.focus(); btn.scrollIntoView({block:"nearest",inline:"nearest"});
+});
+const h=location.hash.slice(1);
+if(h){const [id,w]=h.split("-"); if(ATTACKS.some(a=>a.id===id)){current=id; if(w&&SHAI.some(s=>s.id===w))wave=w;}}
+draw();
+</script>
+</body>
+</html>
